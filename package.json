@@ -1,0 +1,26 @@
+{
+  "name": "mandelbrot-webgl",
+  "version": "1.0.0",
+  "description": "A Mandelbrot set viewer using WebGL.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Xientist/mandelbrot-webgl.git"
+  },
+  "keywords": [
+    "WebGL",
+    "Mandelbrot"
+  ],
+  "author": "Xientist",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Xientist/mandelbrot-webgl/issues"
+  },
+  "homepage": "https://github.com/Xientist/mandelbrot-webgl#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
