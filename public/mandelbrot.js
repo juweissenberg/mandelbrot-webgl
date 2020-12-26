@@ -75,24 +75,26 @@ const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
 // amount of zoom to apply when zooming in the view
 const zoomFactor = 1.1;
 // limit to how far we can zoom out
-const zoomLimit = 5.0;
-// factor determining how fast the view is moved with the mouse
-const moveFactorX = 0.001;
-const moveFactorY = 0.001;
+const zoomLimit = 6.0;
 // bounding limits for the translated view
-const minX = -1.5;
-const maxX = 1.5;
-const minY = -3.0;
-const maxY = 3.0;
+const minX = -4.0;
+const maxX = 4.0;
+const minY = -4.0;
+const maxY = 4.0;
 
 // buffers containing the vertices rendered
 const buffers = initBuffers(gl);
 
+// aspect ratio of the canvas on the client's screen
+var aspectRatio = 1.0;
 // position matrix for the camera
 var cameraViewMatrix = [0.0, 0.0, -3.0];
 // x and y position of the center of the view
 var offsetX = 0.0;
 var offsetY = 0.0;
+// factor determining how fast the view is moved with the mouse
+var moveFactorX = 0.001;
+var moveFactorY = moveFactorX * aspectRatio;
 // current zoom in the view
 var zoomAmount = zoomLimit;
 // maximum iteration for the mandelbrot algorithm
@@ -127,6 +129,12 @@ const programInfo = {
     },
 };
 
+// updates the aspect ratio of the canvas
+function updateCanvasRatio() {
+    aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight;
+    moveFactorY = moveFactorX * aspectRatio;
+} 
+
 // updates the uniforms values used in the shaders
 function updateUniforms() {
     gl.uniform2f(programInfo.uniformLocations.zoomCenter, offsetX, offsetY);
@@ -136,7 +144,7 @@ function updateUniforms() {
         canvas.width, 
         canvas.height);
     gl.uniform1f(programInfo.uniformLocations.realAspectRatio, 
-        1.0 * gl.canvas.clientWidth / gl.canvas.clientHeight);
+        aspectRatio);
 }
 
 function handleWheel(event) {
@@ -200,19 +208,21 @@ canvas.addEventListener("mousedown", handleMouseDown);
 document.addEventListener("mouseup", handleMouseUp);
 document.addEventListener("mousemove", handleMouseMove);
 
-// variable to store last calculated distance between touches
+// variables to store last calculated distance between touches
 var touchesDist;
 
 function handleTouchStart(event) {
-    if(event.touches.length===1){
+    // if one finger is touching the view and moving we move the view
+    if(event.touches.length === 1 && event.changedTouches.length === 1){
         down = true;
         mouseX = event.touches[0].pageX;
         mouseY = event.touches[0].pageY;
         event.preventDefault();
-    } else if (event.touches.length===2) {
+    // if two fingers are touching the view and moving we zoom in/out the view
+    } else if (event.touches.length===2 && event.changedTouches.length > 0) {
         down = true;
-        touchesDist = abs(touches[0].pageX - touches[1].pageX)
-                    + abs(touches[0].pageY - touches[1].pageY);
+        touchesDist = Math.abs(event.touches[0].pageX - event.touches[1].pageX);
+                    + Math.abs(event.touches[0].pageY - event.touches[1].pageY);
         event.preventDefault();
     }
 }
@@ -225,7 +235,6 @@ function handleTouchEnd(event) {
 function handleTouchMove(event) {
     if(down){
         if(event.touches.length===1){
-            event.preventDefault();
 
             const x = event.touches[0].pageX;
             const y = event.touches[0].pageY;
@@ -248,19 +257,20 @@ function handleTouchMove(event) {
 
             drawScene(gl, programInfo, buffers);
 
-        } else if(event.touches.length===2) {
+        } else if(event.touches.length === 2 && event.changedTouches.length > 0) {
             event.preventDefault();
 
-            dist = abs(touches[0].pageX - touches[1].pageX)
-                    + abs(touches[0].pageY - touches[1].pageY);
+            dist = Math.abs(event.touches[0].pageX - event.touches[1].pageX);
+                    + Math.abs(event.touches[0].pageY - event.touches[1].pageY);
 
             touchzoom = touchesDist - dist;
-            touchzoom *= 10;
 
             if(touchzoom < 0) {
-                
-            } else if(touchzoom > 0) {
-
+                zoomAmount /= zoomFactor;                
+            } else {
+                zoomAmount *= zoomFactor;
+                // prevent from zooming too far away
+                zoomAmount = zoomAmount < zoomLimit ? zoomAmount : zoomLimit;
             }
 
             touchesDist = dist;
@@ -385,6 +395,9 @@ function drawScene(gl, programInfo, buffers) {
     // clear the canvas before we start drawing on it.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    // recalculate canvas aspect ratio on screen
+    updateCanvasRatio();
+
     // create a perspective matrix, a special matrix that is
     // used to simulate the distortion of perspective in a camera.
     // our field of view is 45 degrees, with a width/height
@@ -392,7 +405,7 @@ function drawScene(gl, programInfo, buffers) {
     // and we only want to see objects between 0.1 units
     // and 100 units away from the camera.
     const fieldOfView = 45 * Math.PI / 180;   // in radians
-    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+    const aspect = aspectRatio;
     const zNear = 0.0;
     const zFar = 5.0;
     const projectionMatrix = mat4.create();
