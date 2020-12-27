@@ -10,7 +10,7 @@ const vsSource = `
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
 
-    varying highp vec2 vTextureCoord;
+    varying vec2 vTextureCoord;
 
     void main(void) {
         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
@@ -24,17 +24,15 @@ const fsSource = `
 
     varying vec2 vTextureCoord;
 
-    uniform sampler2D uSampler;
-    uniform vec2 uResolution;
     uniform float uRealAspectRatio;
-    uniform vec2 uZoomCenter;
-    uniform float uZoomAmount;
+    uniform vec2 uViewOrigin;
+    uniform float uViewRange;
     uniform int uMaxIterations;
 
     void main(void) {
 
-        vec2 uv = gl_FragCoord.xy / uResolution;
-        vec2 c = uZoomCenter + ((uv - vec2(0.5)) * (uZoomAmount));
+        vec2 uv = vTextureCoord;
+        vec2 c = uViewOrigin + ((uv - vec2(0.5)) * (uViewRange));
 
         float c_real = c[0] * uRealAspectRatio;
         float c_imaginary = c[1];
@@ -72,31 +70,41 @@ const gl = initGL(canvas);
 
 // shader program constructed from the vertex and fragment shaders defined previously
 const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+// initial moving speed of the camera
+const initMoveFactor = 0.0025;
 // amount of zoom to apply when zooming in the view
 const zoomFactor = 1.1;
 // limit to how far we can zoom out
-const zoomLimit = 6.0;
+const zoomLimit = -4.0;
 // bounding limits for the translated view
 const minX = -4.0;
 const maxX = 4.0;
-const minY = -4.0;
-const maxY = 4.0;
+const minY = -2.5;
+const maxY = 2.5;
 
 // buffers containing the vertices rendered
-const buffers = initBuffers(gl);
+var buffers = initBuffers(gl);
 
 // aspect ratio of the canvas on the client's screen
 var aspectRatio = 1.0;
-// position matrix for the camera
-var cameraViewMatrix = [0.0, 0.0, -3.0];
+// position of the camera
+var camera = {
+    x: 0.0,
+    y: 0.0,
+    z: zoomLimit
+};
+// factors determining how fast the view is moved with the mouse
+var cameraSpeed = { 
+    x: initMoveFactor,
+    y: initMoveFactor * aspectRatio
+}
 // x and y position of the center of the view
-var offsetX = 0.0;
-var offsetY = 0.0;
-// factor determining how fast the view is moved with the mouse
-var moveFactorX = 0.001;
-var moveFactorY = moveFactorX * aspectRatio;
+var viewOrigin = {
+    x: 0.0,
+    y: 0.0
+}
 // current zoom in the view
-var zoomAmount = zoomLimit;
+var viewRange = 7.0;
 // maximum iteration for the mandelbrot algorithm
 var maxIter = 80;
 // state of the mouse click
@@ -115,54 +123,73 @@ const programInfo = {
     uniformLocations: {
         projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
         modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
-        Sampler: gl.getUniformLocation(shaderProgram, 'uSampler'),
-        // resolution of the canvas is sent with this link
-        resolution: gl.getUniformLocation(shaderProgram, 'uResolution'),
         // actual aspect ratio of the canvas element
         realAspectRatio: gl.getUniformLocation(shaderProgram, 'uRealAspectRatio'),
         // position where the view is moved to is sent with this link
-        zoomCenter: gl.getUniformLocation(shaderProgram, 'uZoomCenter'),
+        viewOrigin: gl.getUniformLocation(shaderProgram, 'uViewOrigin'),
         // zoom amount to apply to the view is sent with this link
-        zoomAmount: gl.getUniformLocation(shaderProgram, 'uZoomAmount'),
+        viewRange: gl.getUniformLocation(shaderProgram, 'uViewRange'),
         // max iterations for the mandelbrot algorithm is sent with this link
         maxIterations: gl.getUniformLocation(shaderProgram, 'uMaxIterations'),
     },
 };
 
+// translates the camera position
+function translateCamera(x, y, z=0.0){
+    // update the offset values for the drawn view to be translated
+    camera.x -= x;
+    camera.y += y;
+    camera.z += z;
+    // bounds the view to chosen limits
+    camera.x = camera.x > minX ? camera.x : minX;
+    camera.x = camera.x < maxX ? camera.x : maxX;
+    camera.y = camera.y > minY ? camera.y : minY;
+    camera.y = camera.y < maxY ? camera.y : maxY;
+}
+
+// take the camera closer to the view
+function zoomCamera(direction){
+    // check the direction and zoom/dezoom accordingly
+    if(direction < 0) {
+        camera.z /= zoomFactor;
+        cameraSpeed.x /= zoomFactor;
+        cameraSpeed.y *= zoomFactor;
+    } else if(direction > 0){
+        camera.z *= zoomFactor;
+        cameraSpeed.x *= zoomFactor;
+        cameraSpeed.y *= zoomFactor;
+        // prevent from zooming too far away
+        if(camera.z < zoomLimit){
+            camera.z = zoomLimit;
+            cameraSpeed.x = initMoveFactor;
+            cameraSpeed.y = initMoveFactor * aspectRatio;
+        }
+        camera.z = camera.z > zoomLimit ? camera.z : zoomLimit;
+    }
+}
+
 // updates the aspect ratio of the canvas
 function updateCanvasRatio() {
     aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    moveFactorY = moveFactorX * aspectRatio;
+    cameraSpeed.y = cameraSpeed.x * aspectRatio;
 } 
 
 // updates the uniforms values used in the shaders
 function updateUniforms() {
-    gl.uniform2f(programInfo.uniformLocations.zoomCenter, offsetX, offsetY);
-    gl.uniform1f(programInfo.uniformLocations.zoomAmount, zoomAmount);
+    gl.uniform2f(programInfo.uniformLocations.viewOrigin, viewOrigin.x, viewOrigin.y);
+    gl.uniform1f(programInfo.uniformLocations.viewRange, viewRange);
     gl.uniform1i(programInfo.uniformLocations.maxIterations, maxIter);
-    gl.uniform2f(programInfo.uniformLocations.resolution, 
-        canvas.width, 
-        canvas.height);
-    gl.uniform1f(programInfo.uniformLocations.realAspectRatio, 
-        aspectRatio);
+    gl.uniform1f(programInfo.uniformLocations.realAspectRatio, aspectRatio);
 }
 
 function handleWheel(event) {
-    // check the direction of the wheel movement and zoom/dezoom accordingly
-    if(event.deltaY < 0) {
-        zoomAmount /= zoomFactor;
-    } else {
-        zoomAmount *= zoomFactor;
-        // prevent from zooming too far away
-        zoomAmount = zoomAmount < zoomLimit ? zoomAmount : zoomLimit;
-    }
+    zoomCamera(event.deltaY);
     drawScene(gl, programInfo, buffers);
 }
 
 function handleMouseDown(event) {
     // the view can now be moved along with the mouse
     down = true;
-
     // initialize the mouse position saved for the translation process
     mouseX = event.pageX;
     mouseY = event.pageY;
@@ -178,25 +205,13 @@ function handleMouseMove(event) {
         // fetch the mouse position relatively to the whole page
         const x = event.pageX;
         const y = event.pageY;
-
         // calculate the distance from last known mouse position
         var tx = mouseX - x;
         var ty = mouseY - y;
-
         // update last known mouse position
         mouseX = x;
         mouseY = y;
-
-        // update the offset values for the drawn view to be translated
-        offsetX += tx * (zoomAmount * moveFactorX);
-        offsetY -= ty * (zoomAmount * moveFactorY);
-
-        // bounds the view to chosen limits
-        offsetX = offsetX > minX ? offsetX : minX;
-        offsetX = offsetX < maxX ? offsetX : maxX;
-        offsetY = offsetY > minY ? offsetY : minY;
-        offsetY = offsetY < maxY ? offsetY : maxY;
-
+        translateCamera(tx * cameraSpeed.x, ty * cameraSpeed.y);
         // update the WebGL scene
         drawScene(gl, programInfo, buffers);
     }
@@ -235,47 +250,24 @@ function handleTouchEnd(event) {
 function handleTouchMove(event) {
     if(down){
         if(event.touches.length===1){
-
             const x = event.touches[0].pageX;
             const y = event.touches[0].pageY;
-
             var tx = mouseX - x;
             var ty = mouseY - y;
-
             mouseX = x;
             mouseY = y;
 
-            // update the offset values for the drawn view to be translated
-            offsetX += tx * (zoomAmount * moveFactorX);
-            offsetY -= ty * (zoomAmount * moveFactorY);
-
-            // bounds the view to chosen limits
-            offsetX = offsetX > minX ? offsetX : minX;
-            offsetX = offsetX < maxX ? offsetX : maxX;
-            offsetY = offsetY > minY ? offsetY : minY;
-            offsetY = offsetY < maxY ? offsetY : maxY;
-
+            translateCamera(tx * cameraSpeed.x, ty * cameraSpeed.y);
             drawScene(gl, programInfo, buffers);
-
         } else if(event.touches.length === 2 && event.changedTouches.length > 0) {
-            event.preventDefault();
-
             dist = Math.abs(event.touches[0].pageX - event.touches[1].pageX);
                     + Math.abs(event.touches[0].pageY - event.touches[1].pageY);
-
             touchzoom = touchesDist - dist;
-
-            if(touchzoom < 0) {
-                zoomAmount /= zoomFactor;                
-            } else {
-                zoomAmount *= zoomFactor;
-                // prevent from zooming too far away
-                zoomAmount = zoomAmount < zoomLimit ? zoomAmount : zoomLimit;
-            }
-
             touchesDist = dist;
 
+            zoomCamera(touchzoom);
             drawScene(gl, programInfo, buffers);
+            event.preventDefault();
         }
     }
 }
@@ -354,10 +346,10 @@ function initBuffers(gl) {
 
     // now create an array of positions for the square.
     const positions = [
-    -1.25,  1.25,
-    1.25,  1.25,
-    -1.25, -1.25,
-    1.25, -1.25,
+    -2.0,  2.0,
+    2.0,  2.0,
+    -2.0, -2.0,
+    2.0, -2.0,
     ];
 
     // now pass the list of positions into WebGL to build the
@@ -426,7 +418,7 @@ function drawScene(gl, programInfo, buffers) {
     // start drawing the square.
     mat4.translate(modelViewMatrix,     // destination matrix
                     modelViewMatrix,     // matrix to translate
-                    cameraViewMatrix);  // amount to translate
+                    [camera.x, camera.y, camera.z]);  // amount to translate
 
     mat4.scale(modelViewMatrix,
                 modelViewMatrix,
@@ -451,6 +443,18 @@ function drawScene(gl, programInfo, buffers) {
             offset);
         gl.enableVertexAttribArray(
             programInfo.attribLocations.vertexPosition);
+    }
+
+    // Indiquer à WebGL comment extraire les coordonnées de texture du tampon
+    {
+        const num = 2; // chaque coordonnée est composée de 2 valeurs
+        const type = gl.FLOAT; // les données dans le tampon sont des flottants 32 bits
+        const normalize = false; // ne pas normaliser
+        const stride = 0; // combien d'octets à récupérer entre un jeu et le suivant
+        const offset = 0; // à combien d'octets du début faut-il commencer
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.textureCoord);
+        gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, num, type, normalize, stride, offset);
+        gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
     }
 
     // tell WebGL to use our program when drawing
