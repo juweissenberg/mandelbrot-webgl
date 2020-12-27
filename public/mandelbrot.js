@@ -96,7 +96,7 @@ var camera = {
 // factors determining how fast the view is moved with the mouse
 var cameraSpeed = { 
     x: initMoveFactor,
-    y: initMoveFactor * aspectRatio
+    y: initMoveFactor
 }
 // x and y position of the center of the view
 var viewOrigin = {
@@ -104,9 +104,9 @@ var viewOrigin = {
     y: 0.0
 }
 // current zoom in the view
-var viewRange = 7.0;
+var viewRange = 8.0;
 // maximum iteration for the mandelbrot algorithm
-var maxIter = 80;
+var maxIter = 40;
 // state of the mouse click
 var down = false;
 // last known position of the mouse
@@ -162,7 +162,7 @@ function zoomCamera(direction){
         if(camera.z < zoomLimit){
             camera.z = zoomLimit;
             cameraSpeed.x = initMoveFactor;
-            cameraSpeed.y = initMoveFactor * aspectRatio;
+            cameraSpeed.y = initMoveFactor;
         }
         camera.z = camera.z > zoomLimit ? camera.z : zoomLimit;
     }
@@ -211,7 +211,10 @@ function handleMouseMove(event) {
         // update last known mouse position
         mouseX = x;
         mouseY = y;
-        translateCamera(tx * cameraSpeed.x, ty * cameraSpeed.y);
+        translateCamera(
+            tx * cameraSpeed.x, 
+            ty * cameraSpeed.y / aspectRatio
+        );
         // update the WebGL scene
         drawScene(gl, programInfo, buffers);
     }
@@ -257,7 +260,10 @@ function handleTouchMove(event) {
             mouseX = x;
             mouseY = y;
 
-            translateCamera(tx * cameraSpeed.x, ty * cameraSpeed.y);
+            translateCamera(
+                tx * cameraSpeed.x * aspectRatio, 
+                ty * cameraSpeed.y
+            );
             drawScene(gl, programInfo, buffers);
         } else if(event.touches.length === 2 && event.changedTouches.length > 0) {
             dist = Math.abs(event.touches[0].pageX - event.touches[1].pageX);
@@ -394,8 +400,8 @@ function drawScene(gl, programInfo, buffers) {
     // used to simulate the distortion of perspective in a camera.
     // our field of view is 45 degrees, with a width/height
     // ratio that matches the display size of the canvas
-    // and we only want to see objects between 0.1 units
-    // and 100 units away from the camera.
+    // and we only want to see objects between 0.0 units
+    // and 5.0 units away from the camera.
     const fieldOfView = 45 * Math.PI / 180;   // in radians
     const aspect = aspectRatio;
     const zNear = 0.0;
