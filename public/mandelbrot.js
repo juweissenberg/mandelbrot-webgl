@@ -82,6 +82,9 @@ const maxX = 4.0;
 const minY = -2.5;
 const maxY = 2.5;
 
+const iterSlider = document.getElementById("iter-slider");
+const iterLabel = document.getElementById("iter-label");
+
 // buffers containing the vertices rendered
 var buffers = initBuffers(gl);
 
@@ -281,6 +284,12 @@ function handleTouchMove(event) {
 canvas.addEventListener("touchstart", handleTouchStart);
 document.addEventListener("touchend", handleTouchEnd);
 document.addEventListener("touchmove", handleTouchMove);
+
+iterSlider.oninput = () => {
+    maxIter = iterSlider.value;
+    iterLabel.textContent = iterSlider.value;
+    drawScene(gl, programInfo, buffers);
+}
 
 function initGL(canvas) {
     
