@@ -4,15 +4,23 @@
     <link rel="stylesheet" href="mandelbrot.css">
 </head>
 <body>
-    <div class="menu-container">
+    <div class="main">
         <div class="w-100 h-100 bg-dark d-flex justify-content-center align-items-center overflow-hidden">
             <canvas id="glCanvas" class="canvas" width="1920" height="1080"></canvas>
         </div>
-        <div class="menu d-flex flex-column justify-content-end align-items-end">
-            <div class="sliders">
-                <p class="text-white bg-dark">Iteration number:</p>
-                <p class="text-white bg-dark" id="iter-label">40</p>
-                <input class="slider" type="range" min="1" max="200" value="40" id="iter-slider">
+        <div class="wrapper d-flex flex-column justify-content-end align-items-end">
+            <div class="menu bg-menu p-3 rounded text-center">
+                <input type="button" class="mb-3 rounded btn-secondary" value="Reset" id="reset-button">
+                <div class="d-flex justify-content-between">
+                    <p class="text-white">Iterations:</p>
+                    <p class="text-white" id="iter-label">40</p>
+                </div>
+                <input class="w-100" type="range" min="1" max="200" value="40" id="iter-slider">
+                <div class="d-flex justify-content-between">
+                    <p class="text-white">Escape:</p>
+                    <p class="text-white" id="escape-label">2</p>
+                </div>
+                <input class="w-100" type="range" min="50" max="200" value="200" id="escape-slider">
             </div>
         </div>
     </div>

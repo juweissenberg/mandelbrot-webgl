@@ -28,6 +28,7 @@ const fsSource = `
     uniform vec2 uViewOrigin;
     uniform float uViewRange;
     uniform int uMaxIterations;
+    uniform float uEscapeValue;
 
     void main(void) {
 
@@ -51,7 +52,7 @@ const fsSource = `
             z_real = nr;
             z_imaginary = ni;
 
-            if(sqrt(z_real*z_real + z_imaginary*z_imaginary) > 2.0){
+            if(sqrt(z_real*z_real + z_imaginary*z_imaginary) > uEscapeValue){
                 iter = i;
                 break;
             }
@@ -71,51 +72,57 @@ const gl = initGL(canvas);
 // shader program constructed from the vertex and fragment shaders defined previously
 const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
 // initial moving speed of the camera
-const initMoveFactor = 0.0025;
+const initMoveFactor = 0.0052;
 // amount of zoom to apply when zooming in the view
 const zoomFactor = 1.1;
-// limit to how far we can zoom out
-const zoomLimit = -4.0;
-// bounding limits for the translated view
-const minX = -4.0;
-const maxX = 4.0;
-const minY = -2.5;
-const maxY = 2.5;
-
+// initial position in space of the view
+const initViewOrigin = {
+    x: 0.0,
+    y: 0.0
+};
+// initial range (multiplier) in space of the view
+const initViewRange = 8.0;
+// initial maximum iteration for the mandelbrot algorithm
+const initMaxIter = 40;
+// initial escape value for the mandelbrot algorithm
+const initEscapeVal = 2.0;
+// GUI document elements
 const iterSlider = document.getElementById("iter-slider");
 const iterLabel = document.getElementById("iter-label");
-
+const escapeSlider = document.getElementById("escape-slider");
+const escapeLabel = document.getElementById("escape-label");
+const resetButton = document.getElementById("reset-button");
 // buffers containing the vertices rendered
 var buffers = initBuffers(gl);
-
 // aspect ratio of the canvas on the client's screen
 var aspectRatio = 1.0;
 // position of the camera
 var camera = {
     x: 0.0,
     y: 0.0,
-    z: zoomLimit
+    z: -4.5
 };
 // factors determining how fast the view is moved with the mouse
-var cameraSpeed = { 
+var moveFactor = { 
     x: initMoveFactor,
     y: initMoveFactor
 }
 // x and y position of the center of the view
 var viewOrigin = {
-    x: 0.0,
-    y: 0.0
+    x: initViewOrigin.x,
+    y: initViewOrigin.y
 }
 // current zoom in the view
-var viewRange = 8.0;
+var viewRange = initViewRange;
 // maximum iteration for the mandelbrot algorithm
-var maxIter = 40;
+var maxIter = initMaxIter;
+// escam=pe value for the mandelbrot algorithm
+var escapeVal = initEscapeVal;
 // state of the mouse click
 var down = false;
 // last known position of the mouse
 var mouseX;
 var mouseY;
-
 // object containing the links to the shaders variables
 const programInfo = {
     program: shaderProgram,
@@ -134,47 +141,53 @@ const programInfo = {
         viewRange: gl.getUniformLocation(shaderProgram, 'uViewRange'),
         // max iterations for the mandelbrot algorithm is sent with this link
         maxIterations: gl.getUniformLocation(shaderProgram, 'uMaxIterations'),
+        // escape value for the mandelbrot algorithm is sent with this link
+        escapeValue: gl.getUniformLocation(shaderProgram, 'uEscapeValue'),
     },
 };
 
-// translates the camera position
-function translateCamera(x, y, z=0.0){
+// resets the view to the initial origin and range
+function resetView() {
+    viewOrigin.x = initViewOrigin.x;
+    viewOrigin.y = initViewOrigin.y;
+    viewRange = initViewRange;
+    moveFactor = {
+        x: initMoveFactor,
+        y: initMoveFactor
+    };
+    maxIter = initMaxIter;
+    escapeVal = initEscapeVal;
+    iterSlider.value = initMaxIter.toString();
+    escapeSlider.value = (escapeVal*100).toString();
+    iterLabel.textContent = initMaxIter.toString();
+    escapeLabel.textContent = escapeVal.toString();
+    drawScene(gl, programInfo, buffers);
+}
+
+// translates the view in space
+function translateView(x, y, z=0.0){
     // update the offset values for the drawn view to be translated
-    camera.x -= x;
-    camera.y += y;
-    camera.z += z;
-    // bounds the view to chosen limits
-    camera.x = camera.x > minX ? camera.x : minX;
-    camera.x = camera.x < maxX ? camera.x : maxX;
-    camera.y = camera.y > minY ? camera.y : minY;
-    camera.y = camera.y < maxY ? camera.y : maxY;
+    viewOrigin.x += x;
+    viewOrigin.y += y;
 }
 
 // take the camera closer to the view
-function zoomCamera(direction){
+function zoomView(direction){
     // check the direction and zoom/dezoom accordingly
     if(direction < 0) {
-        camera.z /= zoomFactor;
-        cameraSpeed.x /= zoomFactor;
-        cameraSpeed.y *= zoomFactor;
+        viewRange /= zoomFactor;
+        moveFactor.x /= zoomFactor;
+        moveFactor.y /= zoomFactor;
     } else if(direction > 0){
-        camera.z *= zoomFactor;
-        cameraSpeed.x *= zoomFactor;
-        cameraSpeed.y *= zoomFactor;
-        // prevent from zooming too far away
-        if(camera.z < zoomLimit){
-            camera.z = zoomLimit;
-            cameraSpeed.x = initMoveFactor;
-            cameraSpeed.y = initMoveFactor;
-        }
-        camera.z = camera.z > zoomLimit ? camera.z : zoomLimit;
+        viewRange *= zoomFactor;
+        moveFactor.x *= zoomFactor;
+        moveFactor.y *= zoomFactor;
     }
 }
 
 // updates the aspect ratio of the canvas
 function updateCanvasRatio() {
     aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    cameraSpeed.y = cameraSpeed.x * aspectRatio;
 } 
 
 // updates the uniforms values used in the shaders
@@ -182,11 +195,12 @@ function updateUniforms() {
     gl.uniform2f(programInfo.uniformLocations.viewOrigin, viewOrigin.x, viewOrigin.y);
     gl.uniform1f(programInfo.uniformLocations.viewRange, viewRange);
     gl.uniform1i(programInfo.uniformLocations.maxIterations, maxIter);
+    gl.uniform1f(programInfo.uniformLocations.escapeValue, escapeVal);
     gl.uniform1f(programInfo.uniformLocations.realAspectRatio, aspectRatio);
 }
 
 function handleWheel(event) {
-    zoomCamera(event.deltaY);
+    zoomView(event.deltaY);
     drawScene(gl, programInfo, buffers);
 }
 
@@ -214,9 +228,9 @@ function handleMouseMove(event) {
         // update last known mouse position
         mouseX = x;
         mouseY = y;
-        translateCamera(
-            tx * cameraSpeed.x, 
-            ty * cameraSpeed.y / aspectRatio
+        translateView(
+            tx * moveFactor.x, 
+            ty * moveFactor.y * aspectRatio
         );
         // update the WebGL scene
         drawScene(gl, programInfo, buffers);
@@ -263,9 +277,9 @@ function handleTouchMove(event) {
             mouseX = x;
             mouseY = y;
 
-            translateCamera(
-                tx * cameraSpeed.x * aspectRatio, 
-                ty * cameraSpeed.y
+            translateView(
+                tx * moveFactor.x, 
+                ty * moveFactor.y
             );
             drawScene(gl, programInfo, buffers);
         } else if(event.touches.length === 2 && event.changedTouches.length > 0) {
@@ -274,7 +288,7 @@ function handleTouchMove(event) {
             touchzoom = touchesDist - dist;
             touchesDist = dist;
 
-            zoomCamera(touchzoom);
+            zoomView(touchzoom);
             drawScene(gl, programInfo, buffers);
             event.preventDefault();
         }
@@ -289,7 +303,15 @@ iterSlider.oninput = () => {
     maxIter = iterSlider.value;
     iterLabel.textContent = iterSlider.value;
     drawScene(gl, programInfo, buffers);
-}
+};
+escapeSlider.oninput = () => {
+    escapeVal = parseInt(escapeSlider.value) / 100.0;
+    escapeLabel.textContent = escapeVal.toString();
+    drawScene(gl, programInfo, buffers);
+};
+resetButton.onclick = () => {
+    resetView();
+};
 
 function initGL(canvas) {
     
@@ -326,7 +348,6 @@ function initShaderProgram(gl, vsSource, fsSource) {
 
     return shaderProgram;
 }
-
 
 // creates a shader of the given type, uploads the source and compiles it.
 function loadShader(gl, type, source) {
