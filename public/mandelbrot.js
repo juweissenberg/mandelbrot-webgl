@@ -280,7 +280,7 @@ function handleTouchMove(event) {
             mouseY = y;
 
             translateView(
-                tx * moveFactor.x, 
+                tx * moveFactor.x / aspectRatio,
                 ty * moveFactor.y
             );
             drawScene(gl, programInfo, buffers);
