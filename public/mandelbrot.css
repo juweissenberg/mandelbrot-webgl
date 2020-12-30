@@ -29,3 +29,25 @@
 .bg-menu {
     background-color: rgba(20, 20, 30, 0.75);
 }
+
+.hide-childrens>* {
+    display: none;
+}
+
+.always-visible {
+    display: inline-block !important;
+}
+
+.settings-visible>* {
+    display: inline-block !important;
+}
+
+.arrow {
+    margin-right: 1vh;
+    margin-left: 1vh;
+    align-self: center;
+}
+
+.settings-visible .arrow {
+    transform: rotate(90deg);
+}

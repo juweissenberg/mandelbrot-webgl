@@ -92,37 +92,8 @@ const iterLabel = document.getElementById("iter-label");
 const escapeSlider = document.getElementById("escape-slider");
 const escapeLabel = document.getElementById("escape-label");
 const resetButton = document.getElementById("reset-button");
-// buffers containing the vertices rendered
-var buffers = initBuffers(gl);
-// aspect ratio of the canvas on the client's screen
-var aspectRatio = 1.0;
-// position of the camera
-var camera = {
-    x: 0.0,
-    y: 0.0,
-    z: -4.5
-};
-// factors determining how fast the view is moved with the mouse
-var moveFactor = { 
-    x: initMoveFactor,
-    y: initMoveFactor
-}
-// x and y position of the center of the view
-var viewOrigin = {
-    x: initViewOrigin.x,
-    y: initViewOrigin.y
-}
-// current zoom in the view
-var viewRange = initViewRange;
-// maximum iteration for the mandelbrot algorithm
-var maxIter = initMaxIter;
-// escam=pe value for the mandelbrot algorithm
-var escapeVal = initEscapeVal;
-// state of the mouse click
-var down = false;
-// last known position of the mouse
-var mouseX;
-var mouseY;
+const settingsElem = document.getElementById("settings");
+const settingsButton = document.getElementById("settings-button");
 // object containing the links to the shaders variables
 const programInfo = {
     program: shaderProgram,
@@ -146,6 +117,37 @@ const programInfo = {
     },
 };
 
+// buffers containing the vertices rendered
+let buffers = initBuffers(gl);
+// aspect ratio of the canvas on the client's screen
+let aspectRatio = 1.0;
+// position of the camera
+let camera = {
+    x: 0.0,
+    y: 0.0,
+    z: -4.5
+};
+// factors determining how fast the view is moved with the mouse
+let moveFactor = { 
+    x: initMoveFactor,
+    y: initMoveFactor
+}
+// x and y position of the center of the view
+let viewOrigin = {
+    x: initViewOrigin.x,
+    y: initViewOrigin.y
+}
+// current zoom in the view
+let viewRange = initViewRange;
+// maximum iteration for the mandelbrot algorithm
+let maxIter = initMaxIter;
+// escam=pe value for the mandelbrot algorithm
+let escapeVal = initEscapeVal;
+// state of the mouse click
+let down = false;
+// last known position of the mouse
+let mouseX;
+let mouseY;
 // resets the view to the initial origin and range
 function resetView() {
     viewOrigin.x = initViewOrigin.x;
@@ -223,8 +225,8 @@ function handleMouseMove(event) {
         const x = event.pageX;
         const y = event.pageY;
         // calculate the distance from last known mouse position
-        var tx = mouseX - x;
-        var ty = mouseY - y;
+        let tx = mouseX - x;
+        let ty = mouseY - y;
         // update last known mouse position
         mouseX = x;
         mouseY = y;
@@ -244,7 +246,7 @@ document.addEventListener("mouseup", handleMouseUp);
 document.addEventListener("mousemove", handleMouseMove);
 
 // variables to store last calculated distance between touches
-var touchesDist;
+let touchesDist;
 
 function handleTouchStart(event) {
     // if one finger is touching the view and moving we move the view
@@ -272,8 +274,8 @@ function handleTouchMove(event) {
         if(event.touches.length===1){
             const x = event.touches[0].pageX;
             const y = event.touches[0].pageY;
-            var tx = mouseX - x;
-            var ty = mouseY - y;
+            let tx = mouseX - x;
+            let ty = mouseY - y;
             mouseX = x;
             mouseY = y;
 
@@ -290,7 +292,6 @@ function handleTouchMove(event) {
 
             zoomView(touchzoom);
             drawScene(gl, programInfo, buffers);
-            event.preventDefault();
         }
     }
 }
@@ -309,9 +310,18 @@ escapeSlider.oninput = () => {
     escapeLabel.textContent = escapeVal.toString();
     drawScene(gl, programInfo, buffers);
 };
-resetButton.onclick = () => {
-    resetView();
-};
+resetButton.addEventListener("click", resetView);
+resetButton.addEventListener("touchstart", resetView);
+
+function handleSettings() {
+    if(settingsElem.classList.contains("settings-visible")){
+        settingsElem.classList.remove("settings-visible");
+    } else {
+        settingsElem.classList.add("settings-visible");
+    }
+}
+settingsButton.addEventListener("click", handleSettings);
+settingsButton.addEventListener("touchstart", handleSettings);
 
 function initGL(canvas) {
     
