@@ -59,6 +59,16 @@
     border-radius: 5px;
 }
 
+.slider:disabled {
+    background-color: rgb(59, 48, 48);
+}
+
+.checkbox {
+    -webkit-appearance: checkbox;
+    width: 3vh;
+    height: 3vh;
+}
+
 @media(orientation: portrait){
     .menu {
         width: fit-content;
