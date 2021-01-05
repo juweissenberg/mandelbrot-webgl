@@ -557,7 +557,7 @@ function main() {
                 mouseY = y;
 
                 mandelbrot.translateView(
-                    tx / aspectRatio,
+                    tx / mandelbrot.aspectRatio,
                     ty
                 );
             } else if(event.touches.length === 2 && event.changedTouches.length > 0) {
