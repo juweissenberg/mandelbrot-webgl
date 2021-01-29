@@ -71,10 +71,14 @@
 
 @media(orientation: portrait){
     .menu {
-        width: fit-content;
+        width: min-content;
     }
 
     .settings-visible {
-        width: 85vw;
+        width: 80vw;
+    }
+
+    .wrapper {
+        align-items: center !important;
     }
 }

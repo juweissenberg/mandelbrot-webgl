@@ -29,8 +29,6 @@ const FS_SOURCE = `
     uniform float uViewRange;
     uniform int uMaxIterations;
     uniform float uEscapeValue;
-    uniform float uPowerFactor;
-    uniform int uDynPower;
 
     void main(void) {
 
@@ -50,17 +48,10 @@ const FS_SOURCE = `
             
             if(i > uMaxIterations) break;
 
-            if(uDynPower == 0){
-                float nr = z_real * z_real - z_imaginary * z_imaginary + c_real;
-                float ni = 2.0 * z_real * z_imaginary + c_imaginary;
-                z_real = nr;
-                z_imaginary = ni;
-            } else {
-                float arg = 2.0 * atan( z_imaginary / (z_real + modulus) );
-                float r = pow(modulus, uPowerFactor);
-                z_real = r * cos(uPowerFactor * arg) + c_real;
-                z_imaginary = r * sin(uPowerFactor * arg) + c_imaginary;
-            }
+            float nr = z_real * z_real - z_imaginary * z_imaginary + c_real;
+            float ni = 2.0 * z_real * z_imaginary + c_imaginary;
+            z_real = nr;
+            z_imaginary = ni;
 
             modulus = sqrt(z_real * z_real + z_imaginary * z_imaginary);
 
@@ -91,8 +82,6 @@ const INIT_VIEW_RANGE = 8.0;
 const INIT_MAX_ITER = 40;
 // initial escape value for the mandelbrot algorithm
 const INIT_ESCAPE_VAL = 2.0;
-// initial power factor for the mandelbrot algorithm
-const INIT_POWER_FACTOR = 2.0;
 
 class GLBrot {
 
@@ -134,11 +123,7 @@ class GLBrot {
                 // max iterations for the mandelbrot algorithm is sent with this link
                 maxIterations: this.gl.getUniformLocation(this.shaderProgram, 'uMaxIterations'),
                 // escape value for the mandelbrot algorithm is sent with this link
-                escapeValue: this.gl.getUniformLocation(this.shaderProgram, 'uEscapeValue'),
-                // power factor for the mandelbrot algorithm is sent with this link
-                powerFactor: this.gl.getUniformLocation(this.shaderProgram, 'uPowerFactor'),
-                // toggle dynamic power through this link
-                dynPower: this.gl.getUniformLocation(this.shaderProgram, 'uDynPower')
+                escapeValue: this.gl.getUniformLocation(this.shaderProgram, 'uEscapeValue')
             },
         };
     }
@@ -173,12 +158,6 @@ class GLBrot {
     
     // escape value for the mandelbrot algorithm
     escapeVal = INIT_ESCAPE_VAL;
-    
-    // power factor for the mandelbrot algorithm
-    powerFactor = INIT_POWER_FACTOR;
-    
-    // variable to toggle dynamic power calculation in shader program
-    dynPower = 0;
 
     // updates the uniforms values used in the shaders
     updateUniforms() {
@@ -189,8 +168,6 @@ class GLBrot {
         this.gl.uniform1f(this.programInfo.uniformLocations.viewRange, this.viewRange);
         this.gl.uniform1i(this.programInfo.uniformLocations.maxIterations, this.maxIter);
         this.gl.uniform1f(this.programInfo.uniformLocations.escapeValue, this.escapeVal);
-        this.gl.uniform1f(this.programInfo.uniformLocations.powerFactor, this.powerFactor);
-        this.gl.uniform1i(this.programInfo.uniformLocations.dynPower, this.dynPower);
         this.gl.uniform1f(this.programInfo.uniformLocations.realAspectRatio, this.aspectRatio);
     }
 
@@ -308,8 +285,6 @@ class GLBrot {
         };
         this.maxIter = INIT_MAX_ITER;
         this.escapeVal = INIT_ESCAPE_VAL;
-        this.powerFactor = INIT_POWER_FACTOR;
-        this.dynPower = 0;
         this.drawScene();
     }
 
@@ -473,9 +448,6 @@ function main() {
     const iterLabel = document.getElementById("iter-label");
     const escapeSlider = document.getElementById("escape-slider");
     const escapeLabel = document.getElementById("escape-label");
-    const powerSlider = document.getElementById("power-slider");
-    const powerLabel = document.getElementById("power-label");
-    const powerCheck = document.getElementById("power-check");
     const resetButton = document.getElementById("reset-button");
     const settingsElem = document.getElementById("settings");
     const settingsButton = document.getElementById("settings-button");
@@ -581,43 +553,17 @@ function main() {
         escapeLabel.textContent = mandelbrot.escapeVal.toString();
         mandelbrot.drawScene();
     };
-    powerSlider.oninput = () => {
-        mandelbrot.powerFactor = parseInt(powerSlider.value) / 1000.0;
-        powerLabel.textContent = mandelbrot.powerFactor.toString();
-        mandelbrot.drawScene();
-    };
 
-    function toggleDynPower() {
-        if(powerCheck.checked){
-            mandelbrot.dynPower = 1;
-            powerSlider.disabled = false;
-        } else {
-            mandelbrot.dynPower = 0;
-            powerSlider.disabled = true;
-        }
-        mandelbrot.drawScene();
-    }
-
-    powerCheck.addEventListener("change", toggleDynPower);
-    powerCheck.addEventListener("touchstart", () => {
-        powerCheck.checked = !powerCheck.checked;
-        toggleDynPower();
-    });
-
-    function resetHandler() {
+    function resetHandlers() {
         mandelbrot.resetView();
-        powerCheck.checked = false;
-        powerSlider.disabled = true;
         iterSlider.value = mandelbrot.maxIter.toString();
         escapeSlider.value = (mandelbrot.escapeVal*1000).toString();
-        powerSlider.value = (mandelbrot.powerFactor*1000).toString();
         iterLabel.textContent = mandelbrot.maxIter.toString();
         escapeLabel.textContent = mandelbrot.escapeVal.toString();
-        powerLabel.textContent = mandelbrot.powerFactor.toString();
     }
 
-    resetButton.addEventListener("click", resetHandler);
-    resetButton.addEventListener("touchstart", resetHandler);
+    resetButton.addEventListener("click", resetHandlers);
+    resetButton.addEventListener("touchstart", resetHandlers);
 
     function handleSettings() {
         if(settingsElem.classList.contains("settings-visible")){
