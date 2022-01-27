@@ -41,7 +41,7 @@ const FS_SOURCE = `
         float z_real = 0.0;
         float z_imaginary = 0.0;
 
-        float modulus = sqrt(z_real * z_real + z_imaginary * z_imaginary);
+        float modulus = z_real * z_real + z_imaginary * z_imaginary;
         
         int iter = 0;
         for(int i = 0; i < 1000; i++) {
@@ -55,7 +55,7 @@ const FS_SOURCE = `
 
             modulus = sqrt(z_real * z_real + z_imaginary * z_imaginary);
 
-            if( modulus > uEscapeValue){
+            if( modulus > uEscapeValue * uEscapeValue){
                 iter = i;
                 break;
             }
