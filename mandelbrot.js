@@ -53,7 +53,7 @@ const FS_SOURCE = `
             z_real = nr;
             z_imaginary = ni;
 
-            modulus = sqrt(z_real * z_real + z_imaginary * z_imaginary);
+            modulus = z_real * z_real + z_imaginary * z_imaginary;
 
             if( modulus > uEscapeValue * uEscapeValue){
                 iter = i;
